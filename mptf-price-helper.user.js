@@ -6,7 +6,8 @@
 // @author       eeek
 // @match        https://marketplace.tf/items/tf2*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=marketplace.tf
-https://github.com/yaboieeek/mptf-price-helper/raw/refs/heads/main/mptf-price-helper.user.js
+// @updateURL https://github.com/yaboieeek/mptf-price-helper/raw/refs/heads/main/mptf-price-helper.user.js
+// @downloadURL https://github.com/yaboieeek/mptf-price-helper/raw/refs/heads/main/mptf-price-helper.user.js
 // @grant GM_addStyle
 // ==/UserScript==
 
@@ -166,13 +167,13 @@ class UIService{
     }
 
     async getKeyPrices(button) {
+        button.disabled = '';
+        button.classList.add('disabled')
         for (const row of this.rows) {
             await this.getKeyPriceAndModifyRow(row);
         }
 
         this.makeCopyAllButton();
-        button.disabled = '';
-        button.classList.add('disabled')
     }
 
     async getKeyPriceAndModifyRow(row) {
