@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MPTF Pricing Helper
 // @namespace    https://steamcommunity.com/profiles/76561198967088046
-// @version      1.0
+// @version      1.0.1
 // @description  Does all the job of checking and calculating prices for suggesions
 // @author       eeek
 // @match        https://marketplace.tf/items/tf2*
@@ -80,7 +80,8 @@ class ApiService {
 //Creates table, fills it with relevant data. This one will call API
 class UIService{
     constructor() {
-        this.rows = []
+        this.rows = [];
+        this.ready = false;
     }
 
     getDatesArray() {
@@ -169,11 +170,13 @@ class UIService{
     async getKeyPrices(button) {
         button.disabled = '';
         button.classList.add('disabled')
-        for (const row of this.rows) {
-            await this.getKeyPriceAndModifyRow(row);
+        if (!this.ready) {
+            for (const row of this.rows) {
+                await this.getKeyPriceAndModifyRow(row);
+            }
+            this.makeCopyAllButton();
+            this.ready = true;
         }
-
-        this.makeCopyAllButton();
     }
 
     async getKeyPriceAndModifyRow(row) {
@@ -309,7 +312,8 @@ GM_addStyle(`
 }
 .eeek-table th {
     color: white;
-    background-color: #2578AE
+    background-color: #2578AE;
+    padding: 0.5rem 0;
 }
 
 .eeek-table td {
