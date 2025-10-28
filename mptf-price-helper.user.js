@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MPTF Pricing Helper
 // @namespace    https://steamcommunity.com/profiles/76561198967088046
-// @version      1.0.1
+// @version      1.1
 // @description  Does all the job of checking and calculating prices for suggesions
 // @author       eeek
 // @match        https://marketplace.tf/items/tf2*
