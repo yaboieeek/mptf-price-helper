@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MPTF Pricing Helper
 // @namespace    https://steamcommunity.com/profiles/76561198967088046
-// @version      1.2
+// @version      1.3
 // @description  Does all the job of checking and calculating prices for suggesions
 // @author       eeek
 // @match        https://marketplace.tf/items/tf2*
@@ -104,15 +104,16 @@ class UIService{
         const relevantDates = DatesController.getMonthlyFilteredDates(dates);
         const table = document.createElement('table');
         table.className = 'eeek-table';
-        const [hdate, hitemPrice, hkeyPrice, hcalcPrice, hMean] = [document.createElement('th'), document.createElement('th'),document.createElement('th'), document.createElement('th'),document.createElement('th')];
+        const [hdate, hitemPrice, h10off, hkeyPrice, hcalcPrice, hMean] = [document.createElement('th'), document.createElement('th'), document.createElement('th'),document.createElement('th'), document.createElement('th'),document.createElement('th')];
 
         hdate.innerText = 'Date';
         hitemPrice.innerText = 'Item price';
         hkeyPrice.innerText = 'Key price';
+        h10off.innerText = 'After fees';
         hcalcPrice.innerText = 'Calculated price';
         hMean.innerText = 'Mean?';
 
-        table.append(hdate, hitemPrice, hkeyPrice, hcalcPrice, hMean);
+        table.append(hdate, hitemPrice, h10off, hkeyPrice, hcalcPrice, hMean);
 
         for (let i = 0; i < relevantDates.length; i++) {
             const date = relevantDates[i];
@@ -128,7 +129,7 @@ class UIService{
 
     createTableRow(dateString, priceString) {
         const row = document.createElement('tr');
-        const [colDate, colItemPrice, colKeyPrice, colCalcPrice, colMean] = [document.createElement('td'),document.createElement('td'), document.createElement('td'), document.createElement('td'), document.createElement('td')];
+        const [colDate, colItemPrice,col10off, colKeyPrice, colCalcPrice, colMean] = [document.createElement('td'),document.createElement('td'),document.createElement('td'), document.createElement('td'), document.createElement('td'), document.createElement('td')];
         const meanCheckbox = document.createElement('input');
         meanCheckbox.type = 'checkbox';
         colMean.append(meanCheckbox);
@@ -136,7 +137,8 @@ class UIService{
 
         colDate.innerText = dateString;
         colItemPrice.innerText = '$' + priceString;
-        row.append(colDate, colItemPrice, colKeyPrice, colCalcPrice, colMean);
+        col10off.innerText = '$' + Math.floor(+priceString * 0.9 * 100) / 100;
+        row.append(colDate, colItemPrice, col10off, colKeyPrice, colCalcPrice, colMean);
         this.rows.push(row);
         return row;
     }
@@ -190,11 +192,11 @@ class UIService{
         const meanMode = row.querySelector('td:last-child input').checked;
         const keyPrice = await this.getKeyPrice(row, meanMode);
 
-        row.querySelectorAll('td')[2].textContent = '$' + keyPrice;
+        row.querySelectorAll('td')[3].textContent = '$' + keyPrice;
 
         const itemPrice = Number(row.querySelectorAll('td')[1].textContent.replace('$', ''));
         Logger.log(row.querySelector('td').textContent, keyPrice, itemPrice, itemPrice / keyPrice);
-        row.querySelectorAll('td')[3].textContent = '~' + (Math.floor(itemPrice / keyPrice * 100) / 100) + ' keys';
+        row.querySelectorAll('td')[4].textContent = '~' + (Math.floor(itemPrice / keyPrice * 100) / 100) + ' keys';
     }
 
     async getKeyPrice(row, mean = false) {
@@ -205,28 +207,28 @@ class UIService{
             return keyPrice
         }
         Logger.log(`Mean requests mode for ${date} row`);
-const relevantDates = DatesController.createDatesArray(date);
+        const relevantDates = DatesController.createDatesArray(date);
 
-let values = [];
+        let values = [];
 
-for (let i = 0; i < relevantDates.length; i++) {
-    const rDate = relevantDates[i];
-    try {
-        const keyPriceHTML = await ApiService.keyPriceRequest(rDate);
-        const keyPrice = Number(KeyPriceExtractor.findMostFrequentPrice(keyPriceHTML));
+        for (let i = 0; i < relevantDates.length; i++) {
+            const rDate = relevantDates[i];
+            try {
+                const keyPriceHTML = await ApiService.keyPriceRequest(rDate);
+                const keyPrice = Number(KeyPriceExtractor.findMostFrequentPrice(keyPriceHTML));
 
-        if (!isNaN(keyPrice) && keyPrice > 0) {
-            values.push(keyPrice);
+                if (!isNaN(keyPrice) && keyPrice > 0) {
+                    values.push(keyPrice);
+                }
+
+                const progressPercentage = (i / (relevantDates.length - 1)) * 100;
+                row.style.background = `linear-gradient(to right, #00ff401a 0%, #00ff401a ${progressPercentage}%, transparent ${progressPercentage}%, transparent 100%)`;
+
+            } catch (error) {
+                Logger.log(`Error processing date ${rDate}: ${error}`);
+                values.push(0)
+            }
         }
-
-        const progressPercentage = (i / (relevantDates.length - 1)) * 100;
-        row.style.background = `linear-gradient(to right, #00ff401a 0%, #00ff401a ${progressPercentage}%, transparent ${progressPercentage}%, transparent 100%)`;
-
-    } catch (error) {
-        Logger.log(`Error processing date ${rDate}: ${error}`);
-        values.push(0)
-    }
-}
 
         function mostFrequent(arr) {
             let m = {};
@@ -266,9 +268,9 @@ for (let i = 0; i < relevantDates.length; i++) {
             if (cells.length >= 3) {
                 const date = cells[0].textContent;
                 const itemPrice = cells[1].textContent.replace('$', '');
-                const keyPrice = cells[2].textContent.replace('$', '');
-                const calculated = cells[3].textContent;
-                const isAverage = cells[4].querySelector('input').checked;
+                const keyPrice = cells[3].textContent.replace('$', '');
+                const calculated = cells[4].textContent;
+                const isAverage = cells[5].querySelector('input').checked;
                 const formattedRow = `${date}\t${itemPrice}/${keyPrice}${isAverage ? Config.averageIndicator : ''}\t${calculated}`;
                 textContent += formattedRow + '\n';
             }
@@ -423,7 +425,7 @@ GM_addStyle(`
 }
 
 .eeek-table td {
-  width: calc(100% / 4);
+  width: calc(100% / 5);
 }
 
 .table-container {
