@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MPTF Pricing Helper
 // @namespace    https://steamcommunity.com/profiles/76561198967088046
-// @version      1.1
+// @version      1.2
 // @description  Does all the job of checking and calculating prices for suggesions
 // @author       eeek
 // @match        https://marketplace.tf/items/tf2*
@@ -15,6 +15,7 @@
 class Config {
     static validSaleMonths = 3;
     static unusualOnly = true // we check if the page is unusual. If it's not, we don't do anything here
+    static averageIndicator = '(weekly average)'
 }
 
 //Adds prefix and that's pmuch it
@@ -267,8 +268,8 @@ for (let i = 0; i < relevantDates.length; i++) {
                 const itemPrice = cells[1].textContent.replace('$', '');
                 const keyPrice = cells[2].textContent.replace('$', '');
                 const calculated = cells[3].textContent;
-
-                const formattedRow = `${date}\t${itemPrice}/${keyPrice}\t${calculated}`;
+                const isAverage = cells[4].querySelector('input').checked;
+                const formattedRow = `${date}\t${itemPrice}/${keyPrice}${isAverage ? Config.averageIndicator : ''}\t${calculated}`;
                 textContent += formattedRow + '\n';
             }
         });
