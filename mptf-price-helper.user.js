@@ -100,17 +100,18 @@ class UIService{
         let prices = this.getPricesArray();
         const pricesLength = prices.length;
 
-        const relevantDates = RelevanceDateFilter.getMonthlyFilteredDates(dates);
+        const relevantDates = DatesController.getMonthlyFilteredDates(dates);
         const table = document.createElement('table');
         table.className = 'eeek-table';
-        const [hdate, hitemPrice, hkeyPrice, hcalcPrice] = [document.createElement('th'), document.createElement('th'),document.createElement('th'), document.createElement('th')];
+        const [hdate, hitemPrice, hkeyPrice, hcalcPrice, hMean] = [document.createElement('th'), document.createElement('th'),document.createElement('th'), document.createElement('th'),document.createElement('th')];
 
         hdate.innerText = 'Date';
         hitemPrice.innerText = 'Item price';
         hkeyPrice.innerText = 'Key price';
         hcalcPrice.innerText = 'Calculated price';
+        hMean.innerText = 'Mean?';
 
-        table.append(hdate, hitemPrice, hkeyPrice, hcalcPrice);
+        table.append(hdate, hitemPrice, hkeyPrice, hcalcPrice, hMean);
 
         for (let i = 0; i < relevantDates.length; i++) {
             const date = relevantDates[i];
@@ -126,10 +127,15 @@ class UIService{
 
     createTableRow(dateString, priceString) {
         const row = document.createElement('tr');
-        const [colDate, colItemPrice, colKeyPrice, colCalcPrice] = [document.createElement('td'),document.createElement('td'), document.createElement('td'), document.createElement('td')];
+        const [colDate, colItemPrice, colKeyPrice, colCalcPrice, colMean] = [document.createElement('td'),document.createElement('td'), document.createElement('td'), document.createElement('td'), document.createElement('td')];
+        const meanCheckbox = document.createElement('input');
+        meanCheckbox.type = 'checkbox';
+        colMean.append(meanCheckbox);
+        colMean.className = 'mean';
+
         colDate.innerText = dateString;
         colItemPrice.innerText = '$' + priceString;
-        row.append(colDate, colItemPrice, colKeyPrice, colCalcPrice);
+        row.append(colDate, colItemPrice, colKeyPrice, colCalcPrice, colMean);
         this.rows.push(row);
         return row;
     }
@@ -180,13 +186,65 @@ class UIService{
     }
 
     async getKeyPriceAndModifyRow(row) {
-        const keyPriceHTML = await ApiService.keyPriceRequest(row.querySelector('td').textContent);
-        const keyPrice = Number(KeyPriceExtractor.findMostFrequentPrice(keyPriceHTML));
+        const meanMode = row.querySelector('td:last-child input').checked;
+        const keyPrice = await this.getKeyPrice(row, meanMode);
+
         row.querySelectorAll('td')[2].textContent = '$' + keyPrice;
 
         const itemPrice = Number(row.querySelectorAll('td')[1].textContent.replace('$', ''));
         Logger.log(row.querySelector('td').textContent, keyPrice, itemPrice, itemPrice / keyPrice);
         row.querySelectorAll('td')[3].textContent = '~' + (Math.floor(itemPrice / keyPrice * 100) / 100) + ' keys';
+    }
+
+    async getKeyPrice(row, mean = false) {
+        const date = row.querySelector('td').textContent;
+        if (!mean) {
+            const keyPriceHTML = await ApiService.keyPriceRequest(date);
+            const keyPrice = Number(KeyPriceExtractor.findMostFrequentPrice(keyPriceHTML));
+            return keyPrice
+        }
+        Logger.log(`Mean requests mode for ${date} row`);
+const relevantDates = DatesController.createDatesArray(date);
+
+let values = [];
+
+for (let i = 0; i < relevantDates.length; i++) {
+    const rDate = relevantDates[i];
+    try {
+        const keyPriceHTML = await ApiService.keyPriceRequest(rDate);
+        const keyPrice = Number(KeyPriceExtractor.findMostFrequentPrice(keyPriceHTML));
+
+        if (!isNaN(keyPrice) && keyPrice > 0) {
+            values.push(keyPrice);
+        }
+
+        const progressPercentage = (i / (relevantDates.length - 1)) * 100;
+        row.style.background = `linear-gradient(to right, #00ff401a 0%, #00ff401a ${progressPercentage}%, transparent ${progressPercentage}%, transparent 100%)`;
+
+    } catch (error) {
+        Logger.log(`Error processing date ${rDate}: ${error}`);
+        values.push(0)
+    }
+}
+
+        function mostFrequent(arr) {
+            let m = {};
+            let maxCount = 0;
+            let res = null;
+
+            for (let x of arr) {
+                m[x] = (m[x] || 0) + 1;
+
+                if (m[x] > maxCount) {
+                    maxCount = m[x];
+                    res = x;
+                }
+            }
+
+            return res;
+        }
+
+        return mostFrequent(values.filter(val => val !== 0));
     }
 
     makeCopyAllButton() {
@@ -264,7 +322,7 @@ class KeyPriceExtractor {
 
 }
 
-class RelevanceDateFilter {
+class DatesController {
     static getMonthlyFilteredDates(datesArray) {
         const timenow = Math.floor(Date.now() / 1000);
 
@@ -274,6 +332,54 @@ class RelevanceDateFilter {
         })
 
         return relevantDates
+    }
+
+    static createDatesArray(date) {
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        const dateTimestamp = Math.floor(new Date(date).getTime() / 1000);
+
+        const dayInSeconds = 60 * 60 * 24;
+
+        let dates = [];
+
+        const datesAfter = [];
+        const datesBefore = [];
+        let beforeLength = 0;
+
+        for (let i = dateTimestamp+dayInSeconds; i < currentTime; i+=dayInSeconds) {
+            if (datesAfter.length < 3) datesAfter.push(i);
+
+        }
+
+        beforeLength = 3 + (3 - datesAfter.length);
+
+        console.log(`\
+            CurrentTime: ${currentTime}
+            DateTimestamp: ${dateTimestamp}
+            DayInSeconds: ${dayInSeconds}
+            TotalPossibleDaysAfter: ${datesAfter.length}
+            DaysBeforeToAdd: ${beforeLength}\
+        `);
+
+        for (let i = beforeLength; i > 0; i--) {
+            datesBefore.push(dateTimestamp-dayInSeconds * i);
+        }
+        dates = [...datesBefore, date,...datesAfter];
+
+        dates = dates.map(date => {
+            if (isNaN(date)) return date
+            const iterDate = new Date(date * 1000);
+
+            const opt = {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+            };
+
+            return new Intl.DateTimeFormat('en-En', opt).format(iterDate)
+        })
+        return dates
     }
 }
 
@@ -289,7 +395,6 @@ class App {
         new UIService().createPanelWithTable()
     }
 }
-
 
 App.init()
 
@@ -331,5 +436,9 @@ GM_addStyle(`
 }
 .disabled {
     filter: grayscale(1.1)
+}
+
+.mean {
+    width: 3rem
 }
 `)
