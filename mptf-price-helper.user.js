@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         MPTF Pricing Helper
 // @namespace    https://steamcommunity.com/profiles/76561198967088046
-// @version      1.3
+// @version      1.3.1
 // @description  Does all the job of checking and calculating prices for suggesions
 // @author       eeek
 // @match        https://marketplace.tf/items/tf2*
@@ -260,7 +260,7 @@ class UIService{
     }
 
     copyTable(button) {
-        let textContent = "";
+        let textContent = window.location.href + "\n\n";
         const tableElement = document.querySelector('.eeek-table')
         const rows = tableElement.querySelectorAll('tr');
         rows.forEach(row => {
